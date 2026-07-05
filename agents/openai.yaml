@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deep Module Refactor"
+  short_description: "Plan structural simplification refactors"
+  default_prompt: "Use $deep-module-refactor to audit this module for structural simplification and produce a plan only."
