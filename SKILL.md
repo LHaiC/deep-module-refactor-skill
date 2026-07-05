@@ -1,99 +1,76 @@
 ---
 name: deep-module-refactor
-description: Plan-only structural simplification refactoring for over-abstracted modules. Use when the user asks to simplify architecture, create a deep module, reduce unnecessary abstraction layers, flatten call chains, clean up a public interface, restore clear end-to-end data flow, or investigate shallow modules and leaky seams. Triggers include structural simplification refactor, deep module refactor, over-abstracted module, flatten call chain, public interface cleanup, 架构简化, 结构性简化重构, 深模块, 过度抽象, 压平调用链, 降低抽象层级, 公共接口收敛.
+description: Plan-only deep-module refactoring for shallow chains of over-layered modules. Use when the user wants to turn over-abstracted, scattered data-flow code into a deep module with a clear primary flow, concentrated internal implementation, minimal external API, and explicit internal interfaces. Triggers include deep module refactor, shallow modules, over-abstracted module chain, flatten call chain, simplify public API, structural simplification refactor, 架构简化, 结构性简化重构, 深模块, 浅模块串联, 过度分层, 过度抽象, 数据流分散, 主流程清晰, 压平调用链, 公共接口收敛.
 ---
 
 # Deep Module Refactor
 
-Use this skill to plan structural simplification before changing code. The default output is a refactor plan only.
+Use this skill to produce one complete deep-refactor plan. The target is not generic cleanup: convert many shallow modules chained into one large tangled whole into a deep module with a tiny semantic interface and concentrated internals.
 
-Do not edit files, run formatters, generate migrations, or update docs unless the user explicitly asks for an implementation pass after the plan.
+Default behavior is plan-only. Do not edit files, run formatters, generate migrations, or update docs unless the user explicitly asks for implementation after the plan.
 
-## Operating Rules
+## Rules
 
 - Ground every conclusion in live code, tests, configs, or docs from the checkout.
+- Identify the primary flow first. If there are parallel heads or modes, map each head and the point where flows converge or diverge.
+- Move cross-file or cross-module choreography back inside the module: ordering rules, lifecycle steps, transient state, helper coordination, and intermediate data ownership should not leak to callers.
 - Prefer deletion, merging, and direct data flow over new abstraction.
 - Preserve real boundaries: trust-boundary validation, error handling that prevents data loss, security checks, hardware/runtime calibration, public compatibility, and measured performance constraints.
-- Treat "deep module" as a small, stable, semantic public interface hiding necessary internal complexity. Do not create a new facade unless it removes real coupling or makes the data flow clearer.
-- If the target module is unclear, first inspect likely paths and ask only after exploration cannot disambiguate it.
+- Treat a deep module as: minimal external API, explicit internal interfaces only where needed, hidden necessary complexity, no leaked intermediate data structures, and a primary path a maintainer can trace end to end.
+- If the target module is unclear, inspect likely paths first and ask only after exploration cannot disambiguate it.
 - If the repo has `CONTEXT.md`, ADRs, architecture docs, or module READMEs, read the relevant ones, but verify them against current code.
 
-## Workflow
+## Required Analysis
 
-### 1. Explore
+Before recommending a design, inspect:
 
-Before proposing changes, inspect the actual module boundary:
-
-- entrypoints, public types/functions/classes, exports, and configuration;
+- module entrypoints, exports, public types/functions/classes, and configuration;
 - real callers and downstream dependencies;
 - tests, fixtures, examples, and integration paths;
 - data structures crossing the module boundary;
-- control-flow pivots such as callbacks, registries, async jobs, dispatch, or dependency injection.
+- current control flow, including callbacks, registries, async jobs, dispatch, dependency injection, or backend selection;
+- lifecycle and ordering constraints now enforced by caller-side choreography.
 
 For code search, use structural/code-index tools first when available; otherwise use fast text search such as `rg`.
 
-### 2. Flow Map
+## Required Diagnosis
 
-Produce a concise current-state map:
+Produce a diagnosis of why the current shape is shallow instead of deep:
 
-- files and symbols inspected;
-- public interface and the callers that rely on it;
-- end-to-end data flow from input to output;
-- control flow through the important functions or objects;
-- where ownership of core concepts currently lives;
-- where complexity is exposed to callers instead of hidden inside the module.
+- the primary flow is split across too many files or abstractions;
+- the public interface is nearly as complex as the implementation;
+- callers must know internal order, lifecycle, staging, modes, or intermediate structures;
+- helpers or pure functions were extracted so far that the bug-prone behavior lives in their call choreography;
+- middle data structures rename, shuttle, or mirror fields without owning semantics;
+- several shallow modules form one large tangled whole instead of one module hiding its internal complexity.
 
-Do not skip this section. If the flow cannot be mapped, say exactly what is missing and stop.
+For each major layer, run a deletion test: if this layer disappeared, would the design become clearer with less coupling, or would necessary complexity just move somewhere worse?
 
-### 3. Candidate Diagnosis
+## Required Design Output
 
-Look for simplification candidates using these friction signals:
+Recommend one complete deep-refactor design, not a list of unrelated options. Include:
 
-- understanding one concept requires jumping through many files;
-- shallow modules where the interface is nearly as complex as the implementation;
-- pure functions or helpers extracted only for testability while bugs live in their call choreography;
-- coupled modules whose seams leak internal data structures, ordering constraints, or lifecycle rules;
-- middle data structures that merely rename or shuttle fields without owning semantics;
-- public API surface that has redundant names, modes, or configuration knobs.
-
-For each candidate, run a deletion test mentally: if this layer disappeared, would the remaining code become clearer with less coupling, or would necessary complexity just move somewhere worse?
-
-### 4. Grilling
-
-If a candidate is promising but design choices remain, ask focused questions before planning implementation. Cover only decisions that change the plan:
-
-- which callers must remain source-compatible;
-- which tests or user workflows must survive unchanged;
-- where the semantic boundary should live;
-- what data should cross the public interface;
-- which internal details should become private;
-- which complexity is necessary and should not be simplified away.
-
-Prefer a recommended default when the code already points to one.
-
-### 5. Plan Only
-
-Output a staged plan and stop. Include:
-
-- current-state evidence;
-- chosen simplification target;
-- public interface changes, if any;
-- internal layers/functions/data structures to merge, delete, or hide;
+- the primary flow after refactor, including parallel heads if they remain;
+- the minimal external API: every public function/type/config value must have a reason to stay public;
+- the internal interfaces: private types/functions/stages that structure the implementation without leaking to callers;
+- what caller-side choreography, lifecycle management, and intermediate state moves inside the module;
+- which shallow modules, data wrappers, helper layers, or redundant APIs should be merged, hidden, or deleted;
 - compatibility constraints and migration steps;
-- tests and scenarios that must pass;
-- risks, unknowns, and anything intentionally left alone.
+- tests and scenarios that must prove the new deep module preserves behavior.
 
-Keep the plan small enough for incremental implementation. If there are multiple independent candidates, rank them and recommend one first slice.
+If key design choices remain unknown, ask focused questions, then still recommend a default when the inspected code points to one.
 
 ## Output Shape
 
 Use this structure unless the user requested another format:
 
-1. `Current Flow`
-2. `Simplification Candidates`
-3. `Recommended Slice`
-4. `Implementation Plan`
-5. `Validation`
-6. `Assumptions`
+1. `Current Primary Flow`
+2. `Why This Is Shallow`
+3. `Deep Module Target`
+4. `Minimal External API`
+5. `Internal Interfaces`
+6. `Complete Refactor Plan`
+7. `Validation`
+8. `Assumptions`
 
 End with a clear stop condition: no files were changed, and implementation requires an explicit follow-up request.
